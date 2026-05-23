@@ -58,7 +58,7 @@ def owaspScan(def cfg, def utils) {
       "--format HTML --format XML --format JSON",
       "--out ${cfg.reportsDir}",
       "--nvdApiKey ${env.NVD_API_KEY}",
-      "--failOnCVSS 10",
+      "--failOnCVSS 7",
       "--enableRetired",
     //  "--suppression dependency-check-suppressions.xml"
     ].join(' '),
