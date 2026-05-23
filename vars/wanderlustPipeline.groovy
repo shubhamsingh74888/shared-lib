@@ -76,17 +76,20 @@ def call(Map args = [:]) {
         }
       }
 
-      // ── 03 · Dependencies ──────────────────────────────
+      
+      
+
+	// ── 03 · Dependencies ──────────────────────────────
       stage('03 · Install Dependencies') {
         parallel {
           stage('Frontend · npm ci') {
             steps {
-              script { pipelineDeps(this, cfg, utils, 'frontend') }
+              script { pipelineDeps(this, cfg, utils, 'frontend') } // ADDED: 'this'
             }
           }
           stage('Backend · npm ci') {
             steps {
-              script { pipelineDeps(this, cfg, utils, 'backend') }
+              script { pipelineDeps(this, cfg, utils, 'backend') }  // ADDED: 'this'
             }
           }
         }
@@ -98,16 +101,17 @@ def call(Map args = [:]) {
         parallel {
           stage('Frontend · Tests') {
             steps {
-              script { pipelineTest(this, cfg, utils, 'frontend') }
+              script { pipelineTest(this, cfg, utils, 'frontend') } // ADDED: 'this'
             }
           }
           stage('Backend · Tests') {
             steps {
-              script { pipelineTest(this, cfg, utils, 'backend') }
+              script { pipelineTest(this, cfg, utils, 'backend') }  // ADDED: 'this'
             }
           }
         }
       }
+
 
       // ── 05 · SAST ──────────────────────────────────────
       stage('05 · SAST · SonarQube') {
