@@ -1,7 +1,3 @@
-// ============================================================
-//  vars/pipelineDeps.groovy
-//  Stage 03 · Dependency Installation
-// ============================================================
 def call(def script, def cfg, def utils, String service) {
 
   utils.sectionHeader("Stage 03 · ${service.capitalize()} Dependencies")
@@ -11,7 +7,8 @@ def call(def script, def cfg, def utils, String service) {
   script.dir(workDir) {
     script.sh """
       echo "[DEPS] Installing ${service} dependencies..."
-      docker run --rm --user root \
+      docker run --rm \
+        -u \$(id -u):\$(id -g) \
         -v "\${PWD}:/app" \
         -w /app \
         node:21-alpine \
