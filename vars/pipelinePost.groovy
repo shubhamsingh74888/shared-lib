@@ -86,13 +86,14 @@ def onUnstable(def cfg, def utils) {
 private String _buildSlackMessage(def cfg, String status) {
   return """
 *Wanderlust · Build #${cfg.buildNumber} · ${status}*
-> Branch      : \`${cfg.gitBranch}\`
-> Environment : \`${cfg.deployEnvironment}\`
-> Commit      : \`${cfg.gitCommitShort}\` by ${cfg.gitAuthor}
+> Branch      : '${cfg.gitBranch}'
+> Environment : '${cfg.deployEnvironment}'
+> Commit      : '${cfg.gitCommitShort}' by ${cfg.gitAuthor}
 > Message     : ${cfg.gitCommitMsg}
-> Frontend    : \`${cfg.frontendImageTag}\`
-> Backend     : \`${cfg.backendImageTag}\`
+> Frontend    : '${cfg.frontendImageTag}'
+> Backend     : '${cfg.backendImageTag}'
 > Duration    : ${cfg.getBuildDuration()}
 > Build URL   : ${env.BUILD_URL}
   """.stripIndent()
+
 }
