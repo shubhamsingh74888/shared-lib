@@ -47,9 +47,13 @@ def npmAuditFix(def cfg, def utils, String service) {
 
   def serviceDir = (service == 'frontend') ? cfg.frontendDir : cfg.backendDir
 
+  // Create reports dir at workspace root BEFORE entering the subdir
   sh "mkdir -p ${cfg.reportsDir}"
 
   dir(serviceDir) {
+    // Also ensure the log target path exists from this relative position
+    sh "mkdir -p ../${cfg.reportsDir}"
+
     sh """
       echo "[AUDIT] Running npm audit fix for ${service}..."
 
@@ -69,7 +73,7 @@ def npmAuditFix(def cfg, def utils, String service) {
           npm audit fix --force 2>&1 && \
           echo '[AUDIT] === Vulnerabilities AFTER fix ===' && \
           npm audit --audit-level=none 2>&1 | tail -10
-        " 2>&1 | tee "../../${cfg.reportsDir}/${service}-audit-fix.log"
+        " 2>&1 | tee "../${cfg.reportsDir}/${service}-audit-fix.log"
 
       echo "[AUDIT] ✔ ${service.capitalize()} audit fix complete. Log: ${cfg.reportsDir}/${service}-audit-fix.log"
     """
@@ -89,7 +93,7 @@ def owaspScan(def cfg, def utils) {
       "--format HTML --format XML --format JSON",
       "--out ${cfg.reportsDir}",
       "--nvdApiKey ${env.NVD_API_KEY}",
-      "--failOnCVSS 7",   // Restored to 7 — audit fix stage clears the backlog
+      "--failOnCVSS 7",
       "--enableRetired",
     ].join(' '),
     odcInstallation: 'OWASP'
