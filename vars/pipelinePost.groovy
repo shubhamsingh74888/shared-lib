@@ -41,45 +41,24 @@ def always(def cfg, def utils, def currentBuild) {
 }
 
 // ── Success notification ────────────────────────────────────
-def onSuccess(def cfg, def utils) {
-  echo "[NOTIFY] ✅ Build #${cfg.buildNumber} SUCCEEDED"
 
-  // ── Slack notification (uncomment to enable) ──────────
-  // withCredentials([string(credentialsId: cfg.slackCredId, variable: 'SLACK_TOKEN')]) {
-  //   slackSend(
-  //     channel: cfg.slackChannel,
-  //     color  : 'good',
-  //     message: _buildSlackMessage(cfg, '✅ PASSED')
-  //   )
-  // }
+def onSuccess(def cfg, def utils) {
+  if (cfg == null) { echo "[NOTIFY] Build SUCCEEDED (cfg unavailable)"; return }
+  echo "[NOTIFY] ✅ Build #${cfg.buildNumber} SUCCEEDED"
 }
 
 // ── Failure notification ────────────────────────────────────
-def onFailure(def cfg, def utils) {
-  echo "[NOTIFY] ❌ Build #${cfg.buildNumber} FAILED"
 
-  // ── Slack notification (uncomment to enable) ──────────
-  // withCredentials([string(credentialsId: cfg.slackCredId, variable: 'SLACK_TOKEN')]) {
-  //   slackSend(
-  //     channel: cfg.slackChannel,
-  //     color  : 'danger',
-  //     message: _buildSlackMessage(cfg, '❌ FAILED')
-  //   )
-  // }
+def onFailure(def cfg, def utils) {
+  if (cfg == null) { echo "[NOTIFY] Build FAILED (cfg unavailable)"; return }
+  echo "[NOTIFY] ❌ Build #${cfg.buildNumber} FAILED"
 }
 
 // ── Unstable notification ───────────────────────────────────
-def onUnstable(def cfg, def utils) {
-  echo "[NOTIFY] ⚠ Build #${cfg.buildNumber} UNSTABLE — review security reports"
 
-  // ── Slack notification (uncomment to enable) ──────────
-  // withCredentials([string(credentialsId: cfg.slackCredId, variable: 'SLACK_TOKEN')]) {
-  //   slackSend(
-  //     channel: cfg.slackChannel,
-  //     color  : 'warning',
-  //     message: _buildSlackMessage(cfg, '⚠ UNSTABLE')
-  //   )
-  // }
+def onUnstable(def cfg, def utils) {
+  if (cfg == null) { echo "[NOTIFY] Build UNSTABLE (cfg unavailable)"; return }
+  echo "[NOTIFY] ⚠ Build #${cfg.buildNumber} UNSTABLE"
 }
 
 // ── Private: build Slack message payload ───────────────────
