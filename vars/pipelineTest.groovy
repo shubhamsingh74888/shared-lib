@@ -9,6 +9,9 @@ def call(def script, def cfg, def utils, String service) {
     def serviceDir = (service == 'frontend') ? cfg.frontendDir : cfg.backendDir
 
     script.dir(serviceDir) {
+        // Create cache dir in the workspace so it is writable
+        script.sh "mkdir -p .npm-cache" 
+        
         try {
             if (service == 'frontend') {
                 script.sh """
@@ -17,6 +20,7 @@ def call(def script, def cfg, def utils, String service) {
                         -u \$(id -u):\$(id -g) \
                         -v "\${PWD}:/app" \
                         -w /app \
+                        -e npm_config_cache=/app/.npm-cache \
                         node:21-alpine \
                         sh -c "npm install --prefer-offline --no-audit --loglevel=error && npm run test -- --coverage --watchAll=false --ci" \
                         2>&1 | tee "../${cfg.reportsDir}/frontend-test.log"
@@ -28,6 +32,7 @@ def call(def script, def cfg, def utils, String service) {
                         -u \$(id -u):\$(id -g) \
                         -v "\${PWD}:/app" \
                         -w /app \
+                        -e npm_config_cache=/app/.npm-cache \
                         node:21-alpine \
                         sh -c "npm install --prefer-offline --no-audit --loglevel=error && npm run test" \
                         2>&1 | tee "../${cfg.reportsDir}/backend-test.log"
