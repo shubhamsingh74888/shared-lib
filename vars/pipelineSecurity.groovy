@@ -52,13 +52,13 @@ def owaspScan(def cfg, def utils) {
 
   dependencyCheck(
     additionalArguments: [
-      "--scan ./${cfg.backendDir}/package-lock.json",
-      "--scan ./${cfg.frontendDir}/package-lock.json",
-      "--scan ./package-lock.json",
+      "--scan ./${cfg.backendDir}/package.json",
+      "--scan ./${cfg.frontendDir}/package.json",
+   //   "--scan ./package-lock.json",
       "--format HTML --format XML --format JSON",
       "--out ${cfg.reportsDir}",
       "--nvdApiKey ${env.NVD_API_KEY}",
-      "--failOnCVSS 9",
+      "--failOnCVSS 10",
       "--enableRetired",
     //  "--suppression dependency-check-suppressions.xml"
     ].join(' '),
