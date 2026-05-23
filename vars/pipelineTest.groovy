@@ -1,6 +1,6 @@
 // ============================================================
 //  vars/pipelineTest.groovy
-//  Stage 04 · Unit Tests (Fixed Arguments and Permissions)
+//  Stage 04 · Unit Tests
 // ============================================================
 def call(def script, def cfg, def utils, String service) {
 
@@ -10,8 +10,8 @@ def call(def script, def cfg, def utils, String service) {
 
     script.dir(serviceDir) {
         // Create cache dir in the workspace so it is writable
-        script.sh "mkdir -p .npm-cache" 
-        
+        script.sh "mkdir -p .npm-cache"
+
         try {
             if (service == 'frontend') {
                 script.sh """
@@ -26,6 +26,7 @@ def call(def script, def cfg, def utils, String service) {
                         2>&1 | tee "../${cfg.reportsDir}/frontend-test.log"
                 """
             } else {
+                // ADDED: -e MONGODB_URI for backend tests
                 script.sh """
                     echo "[TEST] Running backend tests..."
                     docker run --rm \
@@ -33,6 +34,7 @@ def call(def script, def cfg, def utils, String service) {
                         -v "\${PWD}:/app" \
                         -w /app \
                         -e npm_config_cache=/app/.npm-cache \
+                        -e MONGODB_URI='mongodb://10.0.1.165:27017/wanderlust' \
                         node:21-alpine \
                         sh -c "npm install --prefer-offline --no-audit --loglevel=error && npm run test" \
                         2>&1 | tee "../${cfg.reportsDir}/backend-test.log"

@@ -60,7 +60,7 @@ def owaspScan(def cfg, def utils) {
       "--nvdApiKey ${env.NVD_API_KEY}",
       "--failOnCVSS 9",
       "--enableRetired",
-      "--suppression dependency-check-suppressions.xml"
+    //  "--suppression dependency-check-suppressions.xml"
     ].join(' '),
     // FIXED: Must match the "Name" field in Manage Jenkins → Tools
     odcInstallation: 'OWASP' 
