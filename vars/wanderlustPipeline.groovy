@@ -1,16 +1,12 @@
 // ============================================================
 //  vars/wanderlustPipeline.groovy
 //  Master pipeline orchestrator.
-//  Called directly from the Jenkinsfile.
-//  Wires together all modular stage libraries.
 // ============================================================
 import org.wanderlust.PipelineConfig
 import org.wanderlust.Utils
 
 def call(Map args = [:]) {
 
-  // ── Instantiate config and utils once ─────────────────
-  // These objects flow through every stage module
   PipelineConfig cfg
   Utils          utils
 
@@ -58,9 +54,6 @@ def call(Map args = [:]) {
       NVD_API_KEY     = credentials("${args.nvdApiKeyId  ?: 'nvd-api-token'}")
     }
 
-    // ══════════════════════════════════════════════════════
-    //  STAGES  — each call delegates to a vars/ module
-    // ══════════════════════════════════════════════════════
     stages {
 
       // ── 01 · Init ──────────────────────────────────────
@@ -88,12 +81,12 @@ def call(Map args = [:]) {
         parallel {
           stage('Frontend · npm ci') {
             steps {
-              script { pipelineDeps(cfg, utils, 'frontend') }
+              script { pipelineDeps(this, cfg, utils, 'frontend') }
             }
           }
           stage('Backend · npm ci') {
             steps {
-              script { pipelineDeps(cfg, utils, 'backend') }
+              script { pipelineDeps(this, cfg, utils, 'backend') }
             }
           }
         }
@@ -105,12 +98,12 @@ def call(Map args = [:]) {
         parallel {
           stage('Frontend · Tests') {
             steps {
-              script { pipelineTest(cfg, utils, 'frontend') }
+              script { pipelineTest(this, cfg, utils, 'frontend') }
             }
           }
           stage('Backend · Tests') {
             steps {
-              script { pipelineTest(cfg, utils, 'backend') }
+              script { pipelineTest(this, cfg, utils, 'backend') }
             }
           }
         }
@@ -209,14 +202,10 @@ def call(Map args = [:]) {
       }
 
     }
-    // ══════════════════════════════════════════════════════
-    //  POST ACTIONS
-    // ══════════════════════════════════════════════════════
+
     post {
       always {
-        script {
-          pipelinePost.always(cfg, utils, currentBuild)
-        }
+        script { pipelinePost.always(cfg, utils, currentBuild) }
       }
       success {
         script { pipelinePost.onSuccess(cfg, utils) }
