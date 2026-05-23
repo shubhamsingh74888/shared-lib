@@ -10,7 +10,7 @@ def call(def cfg, def utils, String service) {
 
   def dir = service == 'frontend' ? cfg.frontendDir : cfg.backendDir
 
-  dir("${dir}") {
+  dir("${serviceDir}") {
     sh """
       echo "[DEPS] Installing ${service} dependencies..."
       npm ci --prefer-offline --no-audit --loglevel=error
