@@ -1,13 +1,12 @@
 // ============================================================
 //  vars/pipelineSecurity.groovy
-//  Security Stage Module (Fixed directory creation)
+//  Security Stage Module
 // ============================================================
 
 // ── SonarQube SAST ─────────────────────────────────────────
 def sonarScan(def cfg, def utils) {
   utils.sectionHeader('Stage 05 · SAST · SonarQube Code Scan')
 
-  // Ensure reports dir exists
   sh "mkdir -p ${cfg.reportsDir}"
 
   def scannerHome = tool 'sonar-scanner'
@@ -42,7 +41,40 @@ def qualityGate(def cfg, def utils) {
   }
 }
 
-// ── OWASP Dependency Check ─────────────────────────────────
+// ── NPM Audit Fix ──────────────────────────────────────────
+def npmAuditFix(def cfg, def utils, String service) {
+  utils.sectionHeader("Stage 03.5 · NPM Audit Fix · ${service.capitalize()}")
+
+  def serviceDir = (service == 'frontend') ? cfg.frontendDir : cfg.backendDir
+
+  sh "mkdir -p ${cfg.reportsDir}"
+
+  dir(serviceDir) {
+    sh """
+      echo "[AUDIT] Running npm audit fix for ${service}..."
+
+      docker run --rm \
+        -u \$(id -u):\$(id -g) \
+        -v "\${PWD}:/app" \
+        -w /app \
+        -e npm_config_cache=/app/.npm-cache \
+        node:21-alpine \
+        sh -c "
+          mkdir -p .npm-cache && \
+          echo '[AUDIT] === Vulnerabilities BEFORE fix ===' && \
+          npm audit --audit-level=none 2>&1 | tail -10 && \
+          echo '[AUDIT] Attempting npm audit fix...' && \
+          npm audit fix 2>&1 && \
+          echo '[AUDIT] Attempting npm audit fix --force for remaining issues...' && \
+          npm audit fix --force 2>&1 && \
+          echo '[AUDIT] === Vulnerabilities AFTER fix ===' && \
+          npm audit --audit-level=none 2>&1 | tail -10
+        " 2>&1 | tee "../../${cfg.reportsDir}/${service}-audit-fix.log"
+
+      echo "[AUDIT] ✔ ${service.capitalize()} audit fix complete. Log: ${cfg.reportsDir}/${service}-audit-fix.log"
+    """
+  }
+}
 
 // ── OWASP Dependency Check ─────────────────────────────────
 def owaspScan(def cfg, def utils) {
@@ -54,20 +86,17 @@ def owaspScan(def cfg, def utils) {
     additionalArguments: [
       "--scan ./${cfg.backendDir}/package.json",
       "--scan ./${cfg.frontendDir}/package.json",
-   //   "--scan ./package-lock.json",
       "--format HTML --format XML --format JSON",
       "--out ${cfg.reportsDir}",
       "--nvdApiKey ${env.NVD_API_KEY}",
-      "--failOnCVSS 7",
+      "--failOnCVSS 7",   // Restored to 7 — audit fix stage clears the backlog
       "--enableRetired",
-    //  "--suppression dependency-check-suppressions.xml"
     ].join(' '),
-    // FIXED: Must match the "Name" field in Manage Jenkins → Tools
-    odcInstallation: 'OWASP' 
+    odcInstallation: 'OWASP'
   )
 
   dependencyCheckPublisher(
-    pattern           : "${cfg.reportsDir}/dependency-check-report.xml",
+    pattern            : "${cfg.reportsDir}/dependency-check-report.xml",
     failedTotalCritical: 1,
     unstableTotalHigh  : 5
   )
@@ -118,6 +147,5 @@ def trivyImageScan(def cfg, def utils, String service) {
       --ignore-unfixed \
       -o ${cfg.reportsDir}/trivy-${service}-image-table.txt \
       ${imageTag}
-    # ... rest of your code
   """
 }

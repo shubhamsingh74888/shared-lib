@@ -9,7 +9,6 @@ def call(def script, def cfg, def utils, String service) {
     def serviceDir = (service == 'frontend') ? cfg.frontendDir : cfg.backendDir
 
     script.dir(serviceDir) {
-        // Create cache dir in the workspace so it is writable
         script.sh "mkdir -p .npm-cache"
 
         try {
@@ -26,7 +25,6 @@ def call(def script, def cfg, def utils, String service) {
                         2>&1 | tee "../${cfg.reportsDir}/frontend-test.log"
                 """
             } else {
-                // ADDED: -e MONGODB_URI for backend tests
                 script.sh """
                     echo "[TEST] Running backend tests..."
                     docker run --rm \

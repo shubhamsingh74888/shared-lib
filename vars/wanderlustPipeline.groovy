@@ -76,20 +76,36 @@ def call(Map args = [:]) {
         }
       }
 
-      
-      
-
-	// ── 03 · Dependencies ──────────────────────────────
+      // ── 03 · Dependencies ──────────────────────────────
       stage('03 · Install Dependencies') {
         parallel {
           stage('Frontend · npm ci') {
             steps {
-              script { pipelineDeps(this, cfg, utils, 'frontend') } // ADDED: 'this'
+              script { pipelineDeps(this, cfg, utils, 'frontend') }
             }
           }
           stage('Backend · npm ci') {
             steps {
-              script { pipelineDeps(this, cfg, utils, 'backend') }  // ADDED: 'this'
+              script { pipelineDeps(this, cfg, utils, 'backend') }
+            }
+          }
+        }
+      }
+
+      // ── 03.5 · NPM Security Audit Fix ──────────────────
+      // Runs BEFORE tests and OWASP scan so patched packages
+      // flow through every downstream stage automatically.
+      stage('03.5 · NPM Security Audit Fix') {
+        when { not { expression { cfg.skipSecurityScan } } }
+        parallel {
+          stage('Frontend · Audit Fix') {
+            steps {
+              script { pipelineSecurity.npmAuditFix(cfg, utils, 'frontend') }
+            }
+          }
+          stage('Backend · Audit Fix') {
+            steps {
+              script { pipelineSecurity.npmAuditFix(cfg, utils, 'backend') }
             }
           }
         }
@@ -101,17 +117,16 @@ def call(Map args = [:]) {
         parallel {
           stage('Frontend · Tests') {
             steps {
-              script { pipelineTest(this, cfg, utils, 'frontend') } // ADDED: 'this'
+              script { pipelineTest(this, cfg, utils, 'frontend') }
             }
           }
           stage('Backend · Tests') {
             steps {
-              script { pipelineTest(this, cfg, utils, 'backend') }  // ADDED: 'this'
+              script { pipelineTest(this, cfg, utils, 'backend') }
             }
           }
         }
       }
-
 
       // ── 05 · SAST ──────────────────────────────────────
       stage('05 · SAST · SonarQube') {
@@ -146,7 +161,7 @@ def call(Map args = [:]) {
         }
       }
 
-      // ── 08 · Build Images ──────────────────────────────
+      // ── 08 · Build Docker Images ──────────────────────
       stage('08 · Build Docker Images') {
         parallel {
           stage('Build · Frontend') {
