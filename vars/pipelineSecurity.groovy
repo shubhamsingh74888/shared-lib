@@ -43,9 +43,11 @@ def qualityGate(def cfg, def utils) {
 }
 
 // ── OWASP Dependency Check ─────────────────────────────────
+
+// ── OWASP Dependency Check ─────────────────────────────────
 def owaspScan(def cfg, def utils) {
   utils.sectionHeader('Stage 07 · SCA · OWASP Dependency-Check')
-  
+
   sh "mkdir -p ${cfg.reportsDir}"
 
   dependencyCheck(
@@ -60,7 +62,8 @@ def owaspScan(def cfg, def utils) {
       "--enableRetired",
       "--suppression dependency-check-suppressions.xml"
     ].join(' '),
-    odcInstallation: 'dependency-check'
+    // FIXED: Must match the "Name" field in Manage Jenkins → Tools
+    odcInstallation: 'OWASP' 
   )
 
   dependencyCheckPublisher(
