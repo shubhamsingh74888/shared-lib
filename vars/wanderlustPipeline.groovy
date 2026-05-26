@@ -148,11 +148,23 @@ def call(Map args = [:]) {
       stage('07 · SCA & Filesystem Security') {
         when { not { expression { cfg.skipSecurityScan } } }
         parallel {
-          stage('OWASP · Dependency Check') {
-            steps {
-              script { pipelineSecurity.owaspScan(cfg, utils) }
-            }
-          }
+          
+
+	stage('OWASP · Dependency Check') {
+                    steps {
+                        script {
+                            sh """
+                                /mnt/jenkins-data/jenkins-home/tools/org.jenkinsci.plugins.DependencyCheck.tools.DependencyCheckInstallation/OWASP/bin/dependency-check.sh \
+                                --project "wanderlust" \
+                                --scan "." \
+                                --format "HTML" \
+                                --out "security-reports" \
+                                --data "/mnt/jenkins-data/jenkins-home/data/dependency-check-data" || true
+                            """
+                        }
+                    }
+                }
+
           stage('Trivy · Filesystem Scan') {
             steps {
               script { pipelineSecurity.trivyFsScan(cfg, utils) }
