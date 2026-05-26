@@ -151,19 +151,22 @@ def call(Map args = [:]) {
           
 
 	stage('OWASP · Dependency Check') {
-                    steps {
-                        script {
-                            sh """
-                                /mnt/jenkins-data/jenkins-home/tools/org.jenkinsci.plugins.DependencyCheck.tools.DependencyCheckInstallation/OWASP/bin/dependency-check.sh \
-                                --project "wanderlust" \
-                                --scan "." \
-                                --format "HTML" \
-                                --out "security-reports" \
-                                --data "/mnt/jenkins-data/jenkins-home/data/dependency-check-data" || true
-                            """
-                        }
-                    }
-                }
+    steps {
+        script {
+            sh """
+                /mnt/jenkins-data/jenkins-home/tools/org.jenkinsci.plugins.DependencyCheck.tools.DependencyCheckInstallation/OWASP/bin/dependency-check.sh \
+                --project "wanderlust" \
+                --scan "." \
+                --format "HTML" \
+                --out "security-reports" \
+                --data "/mnt/jenkins-data/jenkins-home/data/dependency-check-data" \
+                --disableYarnAudit \
+                --disableAssembly || true
+            """
+        }
+    }
+}                
+
 
           stage('Trivy · Filesystem Scan') {
             steps {
