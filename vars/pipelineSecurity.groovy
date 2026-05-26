@@ -81,6 +81,8 @@ def npmAuditFix(def cfg, def utils, String service) {
 }
 
 // ── OWASP Dependency Check ─────────────────────────────────
+// FIX: Scans only package.json files (not ".") so it never needs
+//      node_modules on the host — deps are installed inside Docker.
 def owaspScan(def cfg, def utils) {
   utils.sectionHeader('Stage 07 · SCA · OWASP Dependency-Check')
 
@@ -95,6 +97,9 @@ def owaspScan(def cfg, def utils) {
       "--nvdApiKey ${env.NVD_API_KEY}",
       "--failOnCVSS 7",
       "--enableRetired",
+      "--disableYarnAudit",
+      "--disableAssembly",
+      "--disableNodeAudit",   // no node_modules on host; audit-fix already ran in 03.5
     ].join(' '),
     odcInstallation: 'OWASP'
   )
@@ -109,18 +114,22 @@ def owaspScan(def cfg, def utils) {
 }
 
 // ── Trivy Filesystem Scan ──────────────────────────────────
+// FIX: Added frontend/.npm-cache and backend/.npm-cache to --skip-dirs
+//      to prevent Trivy from scanning huge cached npm binaries (10–37 MB files)
+//      which caused repeated memory warnings and slow scans.
 def trivyFsScan(def cfg, def utils) {
   utils.sectionHeader('Stage 07 · SCA · Trivy Filesystem Scan')
 
   sh """
     mkdir -p ${cfg.reportsDir}
     echo "[TRIVY-FS] Scanning project filesystem..."
+
     trivy fs . \
       --format table \
       --exit-code 0 \
       --severity HIGH,CRITICAL \
       --ignore-unfixed \
-      --skip-dirs node_modules,dist,build,.git,${cfg.reportsDir} \
+      --skip-dirs node_modules,dist,build,.git,${cfg.reportsDir},frontend/.npm-cache,backend/.npm-cache \
       -o ${cfg.reportsDir}/trivy-fs-table.txt
 
     trivy fs . \
@@ -128,7 +137,7 @@ def trivyFsScan(def cfg, def utils) {
       --exit-code 0 \
       --severity HIGH,CRITICAL \
       --ignore-unfixed \
-      --skip-dirs node_modules,dist,build,.git,${cfg.reportsDir} \
+      --skip-dirs node_modules,dist,build,.git,${cfg.reportsDir},frontend/.npm-cache,backend/.npm-cache \
       -o ${cfg.reportsDir}/trivy-fs-report.json
 
     echo "[TRIVY-FS] ✔ Filesystem scan complete."

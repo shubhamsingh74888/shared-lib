@@ -145,28 +145,20 @@ def call(Map args = [:]) {
       }
 
       // ── 07 · SCA + Filesystem Scans ────────────────────
+      // FIX: Replaced broken inline hardcoded sh-block OWASP stage with
+      //      pipelineSecurity.owaspScan() which:
+      //        • scans only package.json files (not ".") → no node_modules needed
+      //        • uses --disableNodeAudit / --disableYarnAudit / --disableAssembly
+      //        • publishes XML report via dependencyCheckPublisher
       stage('07 · SCA & Filesystem Security') {
         when { not { expression { cfg.skipSecurityScan } } }
         parallel {
-          
 
-	stage('OWASP · Dependency Check') {
-    steps {
-        script {
-            sh """
-                /mnt/jenkins-data/jenkins-home/tools/org.jenkinsci.plugins.DependencyCheck.tools.DependencyCheckInstallation/OWASP/bin/dependency-check.sh \
-                --project "wanderlust" \
-                --scan "." \
-                --format "HTML" \
-                --out "security-reports" \
-                --data "/mnt/jenkins-data/jenkins-home/data/dependency-check-data" \
-                --disableYarnAudit \
-                --disableAssembly || true
-            """
-        }
-    }
-}                
-
+          stage('OWASP · Dependency Check') {
+            steps {
+              script { pipelineSecurity.owaspScan(cfg, utils) }
+            }
+          }
 
           stage('Trivy · Filesystem Scan') {
             steps {
