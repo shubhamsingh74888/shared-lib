@@ -47,11 +47,9 @@ def npmAuditFix(def cfg, def utils, String service) {
 
   def serviceDir = (service == 'frontend') ? cfg.frontendDir : cfg.backendDir
 
-  // Create reports dir at workspace root BEFORE entering the subdir
   sh "mkdir -p ${cfg.reportsDir}"
 
   dir(serviceDir) {
-    // Also ensure the log target path exists from this relative position
     sh "mkdir -p ../${cfg.reportsDir}"
 
     sh """
@@ -81,44 +79,58 @@ def npmAuditFix(def cfg, def utils, String service) {
 }
 
 // ── OWASP Dependency Check ─────────────────────────────────
-// FIX: Scans only package.json files (not ".") so it never needs
-//      node_modules on the host — deps are installed inside 
-
-
+// FIX: NVD API key is loaded with withCredentials inside this function.
+//      This way a missing 'nvd-api-token' credential will NOT crash the
+//      entire pipeline at startup (as it would if declared in environment{}).
+//      If the credential is absent the scan still runs — just rate-limited.
 def owaspScan(def cfg, def utils) {
-    utils.sectionHeader('Stage 07 · SCA · OWASP Dependency-Check')
+  utils.sectionHeader('Stage 07 · SCA · OWASP Dependency-Check')
 
-    sh "mkdir -p ${cfg.reportsDir}"
-    def odcBin = '/mnt/jenkins-data/jenkins-home/tools/org.jenkinsci.plugins.DependencyCheck.tools.DependencyCheckInstallation/OWASP/bin/dependency-check.sh'
+  sh "mkdir -p ${cfg.reportsDir}"
 
-    // Use withCredentials to safely inject the API Key
-    withCredentials([string(credentialsId: 'nvd-api-token', variable: 'NVD_API_KEY')]) {
-        sh """
-            echo "[OWASP] Running dependency check..."
-            ${odcBin} \
-                --project "wanderlust" \
-                --scan "./${cfg.frontendDir}" \
-                --scan "./${cfg.backendDir}" \
-                --format "HTML" \
-                --format "XML" \
-                --out "${cfg.reportsDir}" \
-                --data "/mnt/jenkins-data/jenkins-home/data/dependency-check-data" \
-                --nvdApiKey "${NVD_API_KEY}" \
-                --disableYarnAudit \
-                --disableAssembly \
-                --enableRetired \
-                || true
-        """
+  def odcBin    = '/mnt/jenkins-data/jenkins-home/tools/org.jenkinsci.plugins.DependencyCheck.tools.DependencyCheckInstallation/OWASP/bin/dependency-check.sh'
+  def nvdKeyArg = ''
+
+  // Try to load the NVD API key — gracefully skip if the credential is missing.
+  try {
+    withCredentials([string(credentialsId: 'nvd-api-token', variable: 'NVD_KEY')]) {
+      nvdKeyArg = "--nvdApiKey ${NVD_KEY}"
+      echo "[OWASP] ✔ NVD API key loaded — full-speed vulnerability database update."
     }
+  } catch (e) {
+    echo "[OWASP] ⚠ Credential 'nvd-api-token' not found — running without NVD API key. Scans will be slower due to rate-limiting. Add the key at: Jenkins → Credentials → Global → Add → Secret text → ID: nvd-api-token"
+  }
 
-    dependencyCheckPublisher(pattern: "${cfg.reportsDir}/dependency-check-report.xml")
-    echo "[SCA] ✔ Report: ${cfg.reportsDir}/dependency-check-report.html"
+  sh """
+    echo "[OWASP] Running dependency check on frontend and backend..."
+
+    ${odcBin} \
+      --project "wanderlust" \
+      --scan "./${cfg.frontendDir}" \
+      --scan "./${cfg.backendDir}" \
+      --format "HTML" \
+      --format "XML" \
+      --out "${cfg.reportsDir}" \
+      --data "/mnt/jenkins-data/jenkins-home/data/dependency-check-data" \
+      ${nvdKeyArg} \
+      --disableYarnAudit \
+      --disableAssembly \
+      --enableRetired \
+      || true
+
+    echo "[OWASP] ✔ Dependency check complete."
+  """
+
+  dependencyCheckPublisher(
+    pattern             : "${cfg.reportsDir}/dependency-check-report.xml",
+    failedTotalCritical : 0,
+    unstableTotalHigh   : 10
+  )
+
+  echo "[SCA] ✔ Report: ${cfg.reportsDir}/dependency-check-report.html"
 }
 
 // ── Trivy Filesystem Scan ──────────────────────────────────
-// FIX: Added frontend/.npm-cache and backend/.npm-cache to --skip-dirs
-//      to prevent Trivy from scanning huge cached npm binaries (10–37 MB files)
-//      which caused repeated memory warnings and slow scans.
 def trivyFsScan(def cfg, def utils) {
   utils.sectionHeader('Stage 07 · SCA · Trivy Filesystem Scan')
 

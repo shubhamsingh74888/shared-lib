@@ -50,8 +50,9 @@ def call(Map args = [:]) {
     }
 
     environment {
-      DOCKERHUB_CREDS = credentials('docker-hub-token')
-      NVD_API_KEY = credentials('dependency-check')
+      // NVD_API_KEY is loaded optionally inside owaspScan() — not here.
+      // Keeping it here would crash the entire pipeline if the credential is missing.
+      DOCKERHUB_CREDS = credentials("${args.dockerCredId ?: 'dockerhub-creds'}")
     }
 
     stages {
