@@ -93,7 +93,7 @@ def owaspScan(def cfg, def utils) {
 
   // Try to load the NVD API key — gracefully skip if the credential is missing.
   try {
-    withCredentials([string(credentialsId: 'nvd-api-token', variable: 'NVD_KEY')]) {
+    withCredentials([string(credentialsId: 'NVD_API_KEY', variable: 'NVD_KEY')]) {
       nvdKeyArg = "--nvdApiKey ${NVD_KEY}"
       echo "[OWASP] ✔ NVD API key loaded — full-speed vulnerability database update."
     }
