@@ -86,40 +86,33 @@ def npmAuditFix(def cfg, def utils, String service) {
 
 
 def owaspScan(def cfg, def utils) {
-  utils.sectionHeader('Stage 07 · SCA · OWASP Dependency-Check')
+    utils.sectionHeader('Stage 07 · SCA · OWASP Dependency-Check')
 
-  sh "mkdir -p ${cfg.reportsDir}"
+    sh "mkdir -p ${cfg.reportsDir}"
+    def odcBin = '/mnt/jenkins-data/jenkins-home/tools/org.jenkinsci.plugins.DependencyCheck.tools.DependencyCheckInstallation/OWASP/bin/dependency-check.sh'
 
-  def odcBin = '/mnt/jenkins-data/jenkins-home/tools/org.jenkinsci.plugins.DependencyCheck.tools.DependencyCheckInstallation/OWASP/bin/dependency-check.sh'
+    // Use withCredentials to safely inject the API Key
+    withCredentials([string(credentialsId: 'nvd-api-token', variable: 'NVD_API_KEY')]) {
+        sh """
+            echo "[OWASP] Running dependency check..."
+            ${odcBin} \
+                --project "wanderlust" \
+                --scan "./${cfg.frontendDir}" \
+                --scan "./${cfg.backendDir}" \
+                --format "HTML" \
+                --format "XML" \
+                --out "${cfg.reportsDir}" \
+                --data "/mnt/jenkins-data/jenkins-home/data/dependency-check-data" \
+                --nvdApiKey "${NVD_API_KEY}" \
+                --disableYarnAudit \
+                --disableAssembly \
+                --enableRetired \
+                || true
+        """
+    }
 
-  sh """
-    echo "[OWASP] Running dependency check on frontend and backend..."
-
-    ${odcBin} \
-      --project "wanderlust" \
-      --scan "./${cfg.frontendDir}" \
-      --scan "./${cfg.backendDir}" \
-      --format "HTML" \
-      --format "XML" \
-      --out "${cfg.reportsDir}" \
-      --data "/mnt/jenkins-data/jenkins-home/data/dependency-check-data" \
-      --nvdApiKey "${env.NVD_API_KEY}" \
-      --disableYarnAudit \
-      --disableAssembly \
-      --enableRetired \
-      || true
-
-    echo "[OWASP] ✔ Dependency check complete."
-  """
-
-  // Publish XML report in Jenkins UI — works independently of the shell scan
-  dependencyCheckPublisher(
-    pattern            : "${cfg.reportsDir}/dependency-check-report.xml",
-    failedTotalCritical: 0,
-    unstableTotalHigh  : 10
-  )
-
-  echo "[SCA] ✔ Report: ${cfg.reportsDir}/dependency-check-report.html"
+    dependencyCheckPublisher(pattern: "${cfg.reportsDir}/dependency-check-report.xml")
+    echo "[SCA] ✔ Report: ${cfg.reportsDir}/dependency-check-report.html"
 }
 
 // ── Trivy Filesystem Scan ──────────────────────────────────
