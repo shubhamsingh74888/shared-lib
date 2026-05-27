@@ -50,8 +50,8 @@ def call(Map args = [:]) {
     }
 
     environment {
-      DOCKERHUB_CREDS = credentials("${args.dockerCredId ?: 'dockerhub-creds'}")
-      NVD_API_KEY     = credentials("${args.nvdApiKeyId  ?: 'nvd-api-token'}")
+      DOCKERHUB_CREDS = credentials('docker-hub-token')
+      NVD_API_KEY = credentials('dependency-check')
     }
 
     stages {
