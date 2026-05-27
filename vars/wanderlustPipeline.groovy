@@ -70,9 +70,7 @@ def call(Map args = [:]) {
       // ── 02 · Checkout ──────────────────────────────────
       stage('02 · Source Checkout') {
         steps {
-          script {
-            pipelineCheckout(cfg, utils)
-          }
+          script { pipelineCheckout(cfg, utils) }
         }
       }
 
@@ -93,8 +91,6 @@ def call(Map args = [:]) {
       }
 
       // ── 03.5 · NPM Security Audit Fix ──────────────────
-      // Runs BEFORE tests and OWASP scan so patched packages
-      // flow through every downstream stage automatically.
       stage('03.5 · NPM Security Audit Fix') {
         when { not { expression { cfg.skipSecurityScan } } }
         parallel {
@@ -145,21 +141,14 @@ def call(Map args = [:]) {
       }
 
       // ── 07 · SCA + Filesystem Scans ────────────────────
-      // FIX: Replaced broken inline hardcoded sh-block OWASP stage with
-      //      pipelineSecurity.owaspScan() which:
-      //        • scans only package.json files (not ".") → no node_modules needed
-      //        • uses --disableNodeAudit / --disableYarnAudit / --disableAssembly
-      //        • publishes XML report via dependencyCheckPublisher
       stage('07 · SCA & Filesystem Security') {
         when { not { expression { cfg.skipSecurityScan } } }
         parallel {
-
           stage('OWASP · Dependency Check') {
             steps {
               script { pipelineSecurity.owaspScan(cfg, utils) }
             }
           }
-
           stage('Trivy · Filesystem Scan') {
             steps {
               script { pipelineSecurity.trivyFsScan(cfg, utils) }
@@ -184,7 +173,7 @@ def call(Map args = [:]) {
         }
       }
 
-      // ── 09 · Image Security Scans ──────────────────────
+      // ── 09 · Container Image Scan ──────────────────────
       stage('09 · Container Image Scan') {
         when { not { expression { cfg.skipSecurityScan } } }
         parallel {
@@ -214,61 +203,57 @@ def call(Map args = [:]) {
       }
 
       // ── 11 · GitOps Manifest Update ────────────────────
-      
-	// ── 11 · GitOps Manifest Update ────────────────────────
-// Runs on ALL branches — no when condition
-stage('11 · GitOps · Manifest Update') {
-  steps {
-    script { pipelineDeploy.gitopsUpdate(cfg, utils) }
-  }
-}
+      // Runs on ALL branches — no when condition blocking it
+      stage('11 · GitOps · Manifest Update') {
+        steps {
+          script { pipelineDeploy.gitopsUpdate(cfg, utils) }
+        }
+      }
 
-// ── 12 · EKS Node Readiness ────────────────────────────
-stage('12 · EKS · Node Readiness') {
-  steps {
-    script {
-      utils.sectionHeader('Stage 12 · EKS · Node Readiness Check')
-      sh '''
-        set -e
+      // ── 12 · EKS Node Readiness ────────────────────────
+      stage('12 · EKS · Node Readiness') {
+        steps {
+          script {
+            utils.sectionHeader('Stage 12 · EKS · Node Readiness Check')
+            sh '''
+              aws eks update-kubeconfig \
+                --name wanderlust-prod-eks \
+                --region ap-south-1 2>/dev/null || true
 
-        aws eks update-kubeconfig \
-          --name wanderlust-prod-eks \
-          --region ap-south-1 2>/dev/null || true
+              NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null \
+                | grep -c Ready || echo 0)
+              echo "[EKS] Ready nodes: $NODE_COUNT"
 
-        NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null \
-          | grep -c Ready || echo 0)
-        echo "[EKS] Ready nodes: $NODE_COUNT"
+              if [ "$NODE_COUNT" -lt 2 ]; then
+                echo "[EKS] Scaling up to 2 nodes..."
+                NODEGROUP=$(aws eks list-nodegroups \
+                  --cluster-name wanderlust-prod-eks \
+                  --region ap-south-1 \
+                  --query 'nodegroups[0]' --output text)
+                aws eks update-nodegroup-config \
+                  --cluster-name wanderlust-prod-eks \
+                  --nodegroup-name $NODEGROUP \
+                  --scaling-config minSize=1,maxSize=3,desiredSize=2 \
+                  --region ap-south-1 2>/dev/null || true
+                echo "[EKS] Nodes scaling — ArgoCD syncs when ready"
+              else
+                echo "[EKS] ✔ $NODE_COUNT nodes ready"
+              fi
 
-        if [ "$NODE_COUNT" -lt 2 ]; then
-          echo "[EKS] Scaling up to 2 nodes..."
-          NODEGROUP=$(aws eks list-nodegroups \
-            --cluster-name wanderlust-prod-eks \
-            --region ap-south-1 \
-            --query 'nodegroups[0]' --output text)
+              if ! kubectl get namespace argocd &>/dev/null; then
+                echo "[EKS] ArgoCD missing — running bootstrap..."
+                bash bootstrap-gitops.sh
+              else
+                echo "[EKS] ✔ ArgoCD running"
+              fi
 
-          aws eks update-nodegroup-config \
-            --cluster-name wanderlust-prod-eks \
-            --nodegroup-name $NODEGROUP \
-            --scaling-config minSize=1,maxSize=3,desiredSize=2 \
-            --region ap-south-1 2>/dev/null || true
+              kubectl get nodes
+            '''
+          }
+        }
+      }
 
-          echo "[EKS] Nodes scaling — ArgoCD syncs when ready"
-        else
-          echo "[EKS] ✔ $NODE_COUNT nodes ready"
-        fi
-
-        if ! kubectl get namespace argocd &>/dev/null; then
-          echo "[EKS] ArgoCD missing — running bootstrap..."
-          bash bootstrap-gitops.sh
-        else
-          echo "[EKS] ✔ ArgoCD running"
-        fi
-
-        kubectl get nodes
-      '''
-    }
-  }
-}
+    }  // ← closes stages {}
 
     post {
       always {
