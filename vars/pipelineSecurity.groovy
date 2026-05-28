@@ -79,10 +79,11 @@ def npmAuditFix(def cfg, def utils, String service) {
 }
 
 // ── OWASP Dependency Check ─────────────────────────────────
-// FIX: NVD API key is loaded with withCredentials inside this function.
-//      This way a missing 'nvd-api-token' credential will NOT crash the
-//      entire pipeline at startup (as it would if declared in environment{}).
-//      If the credential is absent the scan still runs — just rate-limited.
+// FIX 1: NVD_API_KEY credential ID matches Jenkins credential exactly.
+// FIX 2: Added --disableRetireJS — this was taking 6+ minutes alone.
+//         RetireJS downloads JS vuln data from internet every build.
+//         OWASP DC already covers JS vulns via NVD, so RetireJS is redundant.
+// FIX 3: Added --exclude to skip node_modules at scanner level (belt+suspenders).
 def owaspScan(def cfg, def utils) {
   utils.sectionHeader('Stage 07 · SCA · OWASP Dependency-Check')
 
@@ -91,14 +92,14 @@ def owaspScan(def cfg, def utils) {
   def odcBin    = '/mnt/jenkins-data/jenkins-home/tools/org.jenkinsci.plugins.DependencyCheck.tools.DependencyCheckInstallation/OWASP/bin/dependency-check.sh'
   def nvdKeyArg = ''
 
-  // Try to load the NVD API key — gracefully skip if the credential is missing.
+  // Load NVD API key — credential ID matches Jenkins credentials page exactly.
   try {
     withCredentials([string(credentialsId: 'NVD_API_KEY', variable: 'NVD_KEY')]) {
       nvdKeyArg = "--nvdApiKey ${NVD_KEY}"
       echo "[OWASP] ✔ NVD API key loaded — full-speed vulnerability database update."
     }
   } catch (e) {
-    echo "[OWASP] ⚠ Credential 'nvd-api-token' not found — running without NVD API key. Scans will be slower due to rate-limiting. Add the key at: Jenkins → Credentials → Global → Add → Secret text → ID: nvd-api-token"
+    echo "[OWASP] ⚠ Credential 'NVD_API_KEY' not found — running without NVD key (rate-limited)."
   }
 
   sh """
@@ -108,6 +109,8 @@ def owaspScan(def cfg, def utils) {
       --project "wanderlust" \
       --scan "./${cfg.frontendDir}" \
       --scan "./${cfg.backendDir}" \
+      --exclude "**/.npm-cache/**" \
+      --exclude "**/node_modules/**" \
       --format "HTML" \
       --format "XML" \
       --out "${cfg.reportsDir}" \
@@ -115,6 +118,7 @@ def owaspScan(def cfg, def utils) {
       ${nvdKeyArg} \
       --disableYarnAudit \
       --disableAssembly \
+      --disableRetireJS \
       --enableRetired \
       || true
 
