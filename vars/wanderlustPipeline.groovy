@@ -211,50 +211,7 @@ def call(Map args = [:]) {
         }
       }
 
-      // ── 12 · EKS Node Readiness ────────────────────────
-      stage('12 · EKS · Node Readiness') {
-        steps {
-          script {
-            utils.sectionHeader('Stage 12 · EKS · Node Readiness Check')
-            sh '''
-              aws eks update-kubeconfig \
-                --name wanderlust-prod-eks \
-                --region ap-south-1 2>/dev/null || true
-
-              NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null \
-                | grep -c Ready || echo 0)
-              echo "[EKS] Ready nodes: $NODE_COUNT"
-
-              if [ "$NODE_COUNT" -lt 2 ]; then
-                echo "[EKS] Scaling up to 2 nodes..."
-                NODEGROUP=$(aws eks list-nodegroups \
-                  --cluster-name wanderlust-prod-eks \
-                  --region ap-south-1 \
-                  --query 'nodegroups[0]' --output text)
-                aws eks update-nodegroup-config \
-                  --cluster-name wanderlust-prod-eks \
-                  --nodegroup-name $NODEGROUP \
-                  --scaling-config minSize=1,maxSize=3,desiredSize=2 \
-                  --region ap-south-1 2>/dev/null || true
-                echo "[EKS] Nodes scaling — ArgoCD syncs when ready"
-              else
-                echo "[EKS] ✔ $NODE_COUNT nodes ready"
-              fi
-
-              if ! kubectl get namespace argocd &>/dev/null; then
-                echo "[EKS] ArgoCD missing — running bootstrap..."
-                bash bootstrap-gitops.sh
-              else
-                echo "[EKS] ✔ ArgoCD running"
-              fi
-
-              kubectl get nodes
-            '''
-          }
-        }
-      }
-
-    }  // ← closes stages {}
+     
 
     post {
       always {
