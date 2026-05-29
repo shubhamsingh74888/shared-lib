@@ -213,6 +213,19 @@ def call(Map args = [:]) {
 
     } 
 
+	// ── 12 · Trigger CD Pipeline ──────────────────────────────
+stage('12 · Trigger CD') {
+  steps {
+    script {
+      build job: 'wanderlust-cd',          // exact Jenkins job name
+            parameters: [
+              string(name: 'IMAGE_TAG', value: "${cfg.buildNumber}")
+            ],
+            wait: false    // CI turns green without waiting for deploy
+    }
+  }
+}
+
     post {
       always {
         script { pipelinePost.always(cfg, utils, currentBuild) }
