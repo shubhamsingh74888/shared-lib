@@ -23,7 +23,8 @@ def gitopsUpdate(def cfg, def utils) {
     usernameVariable: 'GIT_USER',
     passwordVariable: 'GIT_TOKEN'
   )]) {
-    sh """
+
+    sh """#!/bin/bash
       set -euo pipefail
 
       git config --global user.email "jenkins@wanderlust.ci"
