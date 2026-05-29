@@ -50,14 +50,11 @@ def call(Map args = [:]) {
     }
 
     environment {
-      // NVD_API_KEY is loaded optionally inside owaspScan() — not here.
-      // Keeping it here would crash the entire pipeline if the credential is missing.
       DOCKERHUB_CREDS = credentials("${args.dockerCredId ?: 'dockerhub-creds'}")
     }
 
     stages {
 
-      // ── 01 · Init ──────────────────────────────────────
       stage('01 · Pipeline Init') {
         steps {
           script {
@@ -68,14 +65,12 @@ def call(Map args = [:]) {
         }
       }
 
-      // ── 02 · Checkout ──────────────────────────────────
       stage('02 · Source Checkout') {
         steps {
           script { pipelineCheckout(cfg, utils) }
         }
       }
 
-      // ── 03 · Dependencies ──────────────────────────────
       stage('03 · Install Dependencies') {
         parallel {
           stage('Frontend · npm ci') {
@@ -91,7 +86,6 @@ def call(Map args = [:]) {
         }
       }
 
-      // ── 03.5 · NPM Security Audit Fix ──────────────────
       stage('03.5 · NPM Security Audit Fix') {
         when { not { expression { cfg.skipSecurityScan } } }
         parallel {
@@ -108,7 +102,6 @@ def call(Map args = [:]) {
         }
       }
 
-      // ── 04 · Unit Tests ────────────────────────────────
       stage('04 · Unit Tests') {
         when { not { expression { cfg.skipTests } } }
         parallel {
@@ -125,4 +118,112 @@ def call(Map args = [:]) {
         }
       }
 
-      // ── 05 · SAST ────────────────
+      stage('05 · SAST · SonarQube') {
+        when { not { expression { cfg.skipSecurityScan } } }
+        steps {
+          script { pipelineSecurity.sonarScan(cfg, utils) }
+        }
+      }
+
+      stage('06 · Quality Gate') {
+        when { not { expression { cfg.skipSecurityScan } } }
+        steps {
+          script { pipelineSecurity.qualityGate(cfg, utils) }
+        }
+      }
+
+      stage('07 · SCA & Filesystem Security') {
+        when { not { expression { cfg.skipSecurityScan } } }
+        parallel {
+          stage('OWASP · Dependency Check') {
+            steps {
+              script { pipelineSecurity.owaspScan(cfg, utils) }
+            }
+          }
+          stage('Trivy · Filesystem Scan') {
+            steps {
+              script { pipelineSecurity.trivyFsScan(cfg, utils) }
+            }
+          }
+        }
+      }
+
+      stage('08 · Build Docker Images') {
+        parallel {
+          stage('Build · Frontend') {
+            steps {
+              script { pipelineBuild.buildImage(cfg, utils, 'frontend') }
+            }
+          }
+          stage('Build · Backend') {
+            steps {
+              script { pipelineBuild.buildImage(cfg, utils, 'backend') }
+            }
+          }
+        }
+      }
+
+      stage('09 · Container Image Scan') {
+        when { not { expression { cfg.skipSecurityScan } } }
+        parallel {
+          stage('Trivy · Frontend Image') {
+            steps {
+              script { pipelineSecurity.trivyImageScan(cfg, utils, 'frontend') }
+            }
+          }
+          stage('Trivy · Backend Image') {
+            steps {
+              script { pipelineSecurity.trivyImageScan(cfg, utils, 'backend') }
+            }
+          }
+        }
+      }
+
+      stage('10 · Push to Registry') {
+        steps {
+          script { pipelineBuild.pushImages(cfg, utils) }
+        }
+        post {
+          always {
+            sh 'docker logout || true'
+          }
+        }
+      }
+
+      stage('11 · GitOps · Manifest Update') {
+        steps {
+          script { pipelineDeploy.gitopsUpdate(cfg, utils) }
+        }
+      }
+
+      stage('12 · Trigger CD') {
+        steps {
+          script {
+            build job: 'wanderlust-cd',
+                  parameters: [
+                    string(name: 'IMAGE_TAG', value: "${cfg.buildNumber}")
+                  ],
+                  wait: false
+          }
+        }
+      }
+
+    } // Closes stages
+
+    post {
+      always {
+        script { pipelinePost.always(cfg, utils, currentBuild) }
+      }
+      success {
+        script { pipelinePost.onSuccess(cfg, utils) }
+      }
+      failure {
+        script { pipelinePost.onFailure(cfg, utils) }
+      }
+      unstable {
+        script { pipelinePost.onUnstable(cfg, utils) }
+      }
+    }
+
+  } // Closes pipeline
+} // Closes def call()
