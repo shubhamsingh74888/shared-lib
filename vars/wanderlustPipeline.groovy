@@ -226,6 +226,7 @@ stage('12 · Trigger CD') {
   }
 }
 
+}
     post {
       always {
         script { pipelinePost.always(cfg, utils, currentBuild) }
