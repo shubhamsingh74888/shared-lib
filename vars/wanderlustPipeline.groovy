@@ -60,14 +60,14 @@ def call(Map args = [:]) {
           script {
             cfg   = new PipelineConfig(args, env, params)
             utils = new Utils(this)
-            pipelineInit(cfg, utils)
+            wanderlustInit(cfg, utils)
           }
         }
       }
 
       stage('02 · Source Checkout') {
         steps {
-          script { pipelineCheckout(cfg, utils) }
+          script { wanderlustCheckout(cfg, utils) }
         }
       }
 
@@ -75,12 +75,12 @@ def call(Map args = [:]) {
         parallel {
           stage('Frontend · npm ci') {
             steps {
-              script { pipelineDeps(this, cfg, utils, 'frontend') }
+              script { wanderlustDeps(this, cfg, utils, 'frontend') }
             }
           }
           stage('Backend · npm ci') {
             steps {
-              script { pipelineDeps(this, cfg, utils, 'backend') }
+              script { wanderlustDeps(this, cfg, utils, 'backend') }
             }
           }
         }
@@ -91,12 +91,12 @@ def call(Map args = [:]) {
         parallel {
           stage('Frontend · Audit Fix') {
             steps {
-              script { pipelineSecurity.npmAuditFix(cfg, utils, 'frontend') }
+              script { wanderlustSecurity.npmAuditFix(cfg, utils, 'frontend') }
             }
           }
           stage('Backend · Audit Fix') {
             steps {
-              script { pipelineSecurity.npmAuditFix(cfg, utils, 'backend') }
+              script { wanderlustSecurity.npmAuditFix(cfg, utils, 'backend') }
             }
           }
         }
@@ -107,12 +107,12 @@ def call(Map args = [:]) {
         parallel {
           stage('Frontend · Tests') {
             steps {
-              script { pipelineTest(this, cfg, utils, 'frontend') }
+              script { wanderlustTest(this, cfg, utils, 'frontend') }
             }
           }
           stage('Backend · Tests') {
             steps {
-              script { pipelineTest(this, cfg, utils, 'backend') }
+              script { wanderlustTest(this, cfg, utils, 'backend') }
             }
           }
         }
@@ -121,14 +121,14 @@ def call(Map args = [:]) {
       stage('05 · SAST · SonarQube') {
         when { not { expression { cfg.skipSecurityScan } } }
         steps {
-          script { pipelineSecurity.sonarScan(cfg, utils) }
+          script { wanderlustSecurity.sonarScan(cfg, utils) }
         }
       }
 
       stage('06 · Quality Gate') {
         when { not { expression { cfg.skipSecurityScan } } }
         steps {
-          script { pipelineSecurity.qualityGate(cfg, utils) }
+          script { wanderlustSecurity.qualityGate(cfg, utils) }
         }
       }
 
@@ -137,12 +137,12 @@ def call(Map args = [:]) {
         parallel {
           stage('OWASP · Dependency Check') {
             steps {
-              script { pipelineSecurity.owaspScan(cfg, utils) }
+              script { wanderlustSecurity.owaspScan(cfg, utils) }
             }
           }
           stage('Trivy · Filesystem Scan') {
             steps {
-              script { pipelineSecurity.trivyFsScan(cfg, utils) }
+              script { wanderlustSecurity.trivyFsScan(cfg, utils) }
             }
           }
         }
@@ -152,12 +152,12 @@ def call(Map args = [:]) {
         parallel {
           stage('Build · Frontend') {
             steps {
-              script { pipelineBuild.buildImage(cfg, utils, 'frontend') }
+              script { wanderlustBuild.buildImage(cfg, utils, 'frontend') }
             }
           }
           stage('Build · Backend') {
             steps {
-              script { pipelineBuild.buildImage(cfg, utils, 'backend') }
+              script { wanderlustBuild.buildImage(cfg, utils, 'backend') }
             }
           }
         }
@@ -168,12 +168,12 @@ def call(Map args = [:]) {
         parallel {
           stage('Trivy · Frontend Image') {
             steps {
-              script { pipelineSecurity.trivyImageScan(cfg, utils, 'frontend') }
+              script { wanderlustSecurity.trivyImageScan(cfg, utils, 'frontend') }
             }
           }
           stage('Trivy · Backend Image') {
             steps {
-              script { pipelineSecurity.trivyImageScan(cfg, utils, 'backend') }
+              script { wanderlustSecurity.trivyImageScan(cfg, utils, 'backend') }
             }
           }
         }
@@ -181,7 +181,7 @@ def call(Map args = [:]) {
 
       stage('10 · Push to Registry') {
         steps {
-          script { pipelineBuild.pushImages(cfg, utils) }
+          script { wanderlustBuild.pushImages(cfg, utils) }
         }
         post {
           always {
@@ -192,7 +192,7 @@ def call(Map args = [:]) {
 
       stage('11 · GitOps · Manifest Update') {
         steps {
-          script { pipelineDeploy.gitopsUpdate(cfg, utils) }
+          script { wanderlustDeploy.gitopsUpdate(cfg, utils) }
         }
       }
 
@@ -212,16 +212,16 @@ def call(Map args = [:]) {
 
     post {
       always {
-        script { pipelinePost.always(cfg, utils, currentBuild) }
+        script { wanderlustPost.always(cfg, utils, currentBuild) }
       }
       success {
-        script { pipelinePost.onSuccess(cfg, utils) }
+        script { wanderlustPost.onSuccess(cfg, utils) }
       }
       failure {
-        script { pipelinePost.onFailure(cfg, utils) }
+        script { wanderlustPost.onFailure(cfg, utils) }
       }
       unstable {
-        script { pipelinePost.onUnstable(cfg, utils) }
+        script { wanderlustPost.onUnstable(cfg, utils) }
       }
     }
 
