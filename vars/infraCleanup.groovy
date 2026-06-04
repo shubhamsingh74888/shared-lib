@@ -111,7 +111,7 @@ def call() {
         SGS=\$(aws ec2 describe-security-groups \
           --region \${AWS_DEFAULT_REGION} \
           --filters "Name=vpc-id,Values=\$VPC_ID" \
-          --query 'SecurityGroups[?GroupName!=\`default\`].GroupId' \
+          --query 'SecurityGroups[?GroupName!=\\`default\\`].GroupId' \
           --output text 2>/dev/null || echo "")
         for sg in \$SGS; do
           INGRESS=\$(aws ec2 describe-security-groups \
