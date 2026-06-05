@@ -18,7 +18,7 @@ def call() {
 
             # Define your unique names
             BUCKET_NAME="my-s3-bucket-wanderlust-infra-\${ENVIRONMENT}"
-            TABLE_NAME="wanderlust-shubham-\${ENVIRONMENT}"
+            TABLE_NAME="wanderlust-dynamodb-table-\${ENVIRONMENT}"
 
             echo "[BOOTSTRAP] Checking if DynamoDB table exists..."
             if aws dynamodb describe-table --table-name "\$TABLE_NAME" --region \${AWS_DEFAULT_REGION} 2>/dev/null; then
